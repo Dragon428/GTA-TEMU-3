@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GTA TEMU</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0a0a0a; overflow:hidden; font-family:'Courier New',monospace; }
+  #gameCanvas { display:block; }
+  #hud {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index:10;
+  }
+  #minimap {
+    position:fixed; bottom:20px; right:20px;
+    width:180px; height:180px;
+    border:2px solid #00ff88;
+    border-radius:4px;
+    background:rgba(0,0,0,0.8);
+    overflow:hidden;
+  }
+  #minimapCanvas { display:block; }
+  #stats {
+    position:fixed; top:16px; left:16px;
+    color:#fff;
+    text-shadow: 0 0 8px #00ff88;
+    font-size:14px;
+    line-height:1.8;
+  }
+  #wantedDisplay {
+    position:fixed; top:16px; right:220px;
+    display:flex; gap:4px;
+  }
+  .star { font-size:22px; transition:all 0.2s; }
+  .star.active { color:#FFD700; text-shadow:0 0 10px #FFD700, 0 0 20px #FF8C00; }
+  .star.inactive { color:#333; }
+  #cashDisplay {
+    position:fixed; top:16px; right:16px;
+    color:#00ff88;
+    font-size:22px;
+    font-weight:bold;
+    text-shadow:0 0 10px #00ff88;
+    font-family:'Courier New',monospace;
+  }
+  #healthBar {
+    position:fixed; bottom:20px; left:20px;
+    width:200px;
+  }
+  .barLabel { color:#aaa; font-size:11px; margin-bottom:3px; letter-spacing:2px; }
+  .barOuter { width:100%; height:12px; background:#111; border:1px solid #333; border-radius:2px; }
+  .barInner { height:100%; border-radius:2px; transition:width 0.3s; }
+  #healthFill { background: linear-gradient(90deg,#ff4444,#ff0000); }
+  #armorFill { background: linear-gradient(90deg,#4488ff,#0044ff); }
+  #missionBox {
+    position:fixed; top:60px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,0.85);
+    border:1px solid #00ff88;
+    border-radius:4px;
+    padding:10px 20px;
+    color:#00ff88;
+    font-size:13px;
+    text-align:center;
+    max-width:400px;
+    display:none;
+  }
+  #notification {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:rgba(0,0,0,0.9);
+    border:2px solid #FFD700;
+    color:#FFD700;
+    padding:16px 30px;
+    font-size:18px;
+    font-weight:bold;
+    letter-spacing:3px;
+    border-radius:4px;
+    display:none;
+    text-align:center;
+    z-index:100;
+  }
+  #controls {
+    position:fixed; bottom:220px; left:20px;
+    color:#555;
+    font-size:11px;
+    line-height:1.8;
+  }
+  #gameOver {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.9);
+    display:none; flex-direction:column;
+    align-items:center; justify-content:center;
+    z-index:200;
+  }
+  #gameOver h1 { color:#ff0000; font-size:60px; letter-spacing:8px; text-shadow:0 0 30px #ff0000; margin-bottom:20px; }
+  #gameOver p { color:#aaa; font-size:18px; margin-bottom:30px; }
+  #restartBtn {
+    background:#00ff88; color:#000; border:none; padding:14px 40px;
+    font-size:16px; font-family:'Courier New',monospace; letter-spacing:3px;
+    cursor:pointer; font-weight:bold; border-radius:3px;
+    transition:all 0.2s;
+  }
+  #restartBtn:hover { background:#fff; transform:scale(1.05); }
+  #ammoDisplay {
+    position:fixed; bottom:80px; right:20px;
+    color:#fff; font-size:16px; text-align:right;
+    text-shadow:0 0 8px #fff;
+  }
+  #weaponName {
+    color:#aaa; font-size:11px; letter-spacing:2px;
+  }
+  #splash {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:#000; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:300;
+  }
+  #splash h1 {
+    font-size:72px; color:#ff6600; letter-spacing:10px;
+    text-shadow:0 0 40px #ff4400, 0 0 80px #ff2200;
+    font-style:italic; margin-bottom:8px;
+  }
+  #splash h2 { color:#aaa; font-size:18px; letter-spacing:6px; margin-bottom:40px; }
+  #startBtn {
+    background:transparent; border:2px solid #ff6600; color:#ff6600;
+    padding:16px 50px; font-size:18px; font-family:'Courier New',monospace;
+    letter-spacing:4px; cursor:pointer; transition:all 0.3s;
+  }
+  #startBtn:hover { background:#ff6600; color:#000; box-shadow:0 0 30px #ff6600; }
+  #splash .sub { color:#555; font-size:12px; margin-top:20px; letter-spacing:2px; }
+  #splash .credits { color:#444; font-size:11px; margin-top:12px; letter-spacing:2px; }
+</style>
+</head>
+<body>
+<div id="splash">
+  <h1>GTA TEMU</h1>
+  <h2>C H A O S</h2>
+  <button id="startBtn">JUGAR</button>
+  <p class="sub">WASD/Flechas: Mover &nbsp;|&nbsp; SPACE: Disparar &nbsp;|&nbsp; E: Entrar/Salir coche &nbsp;|&nbsp; Q: Cambiar arma</p>
+  <p class="credits">Made By: Daniel Ibor Naydanova</p>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="hud">
+  <div id="stats">
+    <div id="speedDisplay">⚡ VEL: <span id="speedVal">0</span> km/h</div>
+    <div>🎯 MUERTES: <span id="killCount">0</span></div>
+  </div>
+  <div id="cashDisplay">$<span id="cashVal">0</span></div>
+  <div id="wantedDisplay">
+    <span class="star inactive" id="s1">★</span>
+    <span class="star inactive" id="s2">★</span>
+    <span class="star inactive" id="s3">★</span>
+    <span class="star inactive" id="s4">★</span>
+    <span class="star inactive" id="s5">★</span>
+  </div>
+  <div id="minimap"><canvas id="minimapCanvas" width="180" height="180"></canvas></div>
+  <div id="healthBar">
+    <div class="barLabel">❤ VIDA</div>
+    <div class="barOuter"><div class="barInner" id="healthFill" style="width:100%"></div></div>
+    <div class="barLabel" style="margin-top:8px">🛡 ARMOR</div>
+    <div class="barOuter"><div class="barInner" id="armorFill" style="width:100%"></div></div>
+  </div>
+  <div id="ammoDisplay">
+    <div id="weaponName">PISTOLA</div>
+    <div>🔫 <span id="ammoVal">∞</span></div>
+  </div>
+  <div id="missionBox"></div>
+  <div id="notification"></div>
+  <div id="controls">
+    WASD / ↑↓←→ : Mover<br>
+    SPACE : Disparar<br>
+    E : Entrar/Salir coche<br>
+    Q : Cambiar arma<br>
+    R : Recargar
+  </div>
+</div>
+
+<div id="gameOver">
+  <h1>WASTED</h1>
+  <p id="deathStats"></p>
+  <button id="restartBtn">REINICIAR</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const mmCanvas = document.getElementById('minimapCanvas');
+const mmCtx = mmCanvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// ============ MAP CONFIG ============
+const MAP_W = 4000, MAP_H = 4000;
+const TILE = 40;
+
+// ============ COLORS ============
+const C = {
+  road: '#2a2a2a', roadLine: '#555', sidewalk: '#3a3530',
+  grass: '#1a2e1a', park: '#1e3a1e', water: '#0a1a2e',
+  building: ['#1a1a2e','#2e1a1a','#1a2e2e','#2e2a1a','#1e1a2e'],
+  roof: ['#222244','#442222','#224444','#443322','#332244'],
+  sand: '#3a3020', highway: '#1a1a1a',
+  police: '#1a1aff', ambulance: '#ff1a1a', civilian: ['#884400','#006688','#448800','#880088','#666600'],
+  player: '#00ff88', playerCar: '#00ff88',
+  bullet: '#ffff00', blood: '#ff0000',
+  missionMarker: '#00ffff', shopMarker: '#ffaa00', hospitalMarker: '#ff4444',
+};
+
+// ============ WORLD GEN ============
+function noise(x, y) {
+  let n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+// Generate city blocks
+const buildings = [];
+const roads = [];
+const waterBodies = [];
+const parks = [];
+const decorations = [];
+
+function generateMap() {
+  // Main grid roads
+  for (let x = 0; x < MAP_W; x += 200) roads.push({x, y:0, w:30, h:MAP_H, dir:'v'});
+  for (let y = 0; y < MAP_H; y += 200) roads.push({x:0, y, w:MAP_W, h:30, dir:'h'});
+  // Highways
+  roads.push({x:0, y:MAP_H/2-25, w:MAP_W, h:50, dir:'h', highway:true});
+  roads.push({x:MAP_W/2-25, y:0, w:50, h:MAP_H, dir:'v', highway:true});
+
+  // Water (river, lake)
+  waterBodies.push({x:200, y:2600, w:600, h:800, type:'lake'});
+  waterBodies.push({x:2800, y:400, w:400, h:1200, type:'river'});
+  waterBodies.push({x:0, y:3400, w:4000, h:600, type:'ocean'});
+
+  // Parks
+  parks.push({x:400, y:400, w:350, h:350});
+  parks.push({x:1600, y:1200, w:250, h:250});
+  parks.push({x:2200, y:2200, w:400, h:300});
+  parks.push({x:3200, y:1600, w:300, h:300});
+  parks.push({x:800, y:2000, w:200, h:200});
+
+  // Buildings in blocks
+  for (let bx = 0; bx < MAP_W; bx += 200) {
+    for (let by = 0; by < MAP_H; by += 200) {
+      // Skip roads, water, parks
+      let inWater = waterBodies.some(w => bx>=w.x-50 && bx<=w.x+w.w+50 && by>=w.y-50 && by<=w.y+w.h+50);
+      let inPark = parks.some(p => bx>=p.x-50 && bx<=p.x+p.w+50 && by>=p.y-50 && by<=p.y+p.h+50);
+      if (inWater || inPark) continue;
+      // Place 1-4 buildings per block
+      let count = 1 + Math.floor(noise(bx/200, by/200) * 4);
+      for (let i = 0; i < count; i++) {
+        let ox = 35 + Math.floor(noise(bx+i*7, by+i*13) * 100);
+        let oy = 35 + Math.floor(noise(bx+i*11, by+i*17) * 100);
+        let bw = 30 + Math.floor(noise(bx+i*3, by+i*5) * 90);
+        let bh = 30 + Math.floor(noise(bx+i*9, by+i*15) * 90);
+        let floors = 1 + Math.floor(noise(bx+i, by+i) * 10);
+        let ci = Math.floor(noise(bx+i*2, by+i*2) * C.building.length);
+        buildings.push({
+          x: bx+ox, y: by+oy, w: bw, h: bh,
+          floors, colorIdx: ci,
+          hasWindow: noise(bx+i*4, by+i*8) > 0.3
+        });
+      }
+    }
+  }
+
+  // Trees & lamps
+  parks.forEach(p => {
+    for (let i = 0; i < 20; i++) {
+      decorations.push({
+        type:'tree',
+        x: p.x + Math.random()*p.w,
+        y: p.y + Math.random()*p.h,
+        r: 8 + Math.random()*10
+      });
+    }
+  });
+  for (let i = 0; i < 300; i++) {
+    decorations.push({
+      type:'lamp',
+      x: Math.random()*MAP_W,
+      y: Math.random()*MAP_H
+    });
+  }
+}
+
+// ============ GAME STATE ============
+let state = {};
+
+function initState() {
+  state = {
+    player: {
+      x: MAP_W/2, y: MAP_H/2, angle: 0,
+      speed: 0, health: 100, armor: 100,
+      cash: 500, kills: 0,
+      inCar: false, carIdx: -1,
+      weapon: 0,
+      ammo: [Infinity, 30, 8, 5], // pistol, uzi, shotgun, rpg
+      weapons: ['PISTOLA','UZI','ESCOPETA','RPG'],
+      reloading: false,
+    },
+    camera: { x: MAP_W/2, y: MAP_H/2 },
+    wanted: 0, wantedTimer: 0,
+    bullets: [],
+    enemies: [],
+    cars: [],
+    npcs: [],
+    explosions: [],
+    bloodPools: [],
+    pickups: [],
+    missions: [],
+    currentMission: null,
+    missionStep: 0,
+    notifications: [],
+    policeTimer: 0,
+    score: 0,
+    gameOver: false,
+    tick: 0,
+  };
+
+  spawnCars();
+  spawnNPCs();
+  spawnPickups();
+  setupMissions();
+}
+
+// ============ VEHICLES ============
+const CAR_TYPES = [
+  {name:'Sedan', w:32, h:20, maxSpeed:6, accel:0.15, color:'#884400', seats:4},
+  {name:'Sports', w:30, h:18, maxSpeed:10, accel:0.25, color:'#ff4400', seats:2},
+  {name:'Truck', w:40, h:24, maxSpeed:5, accel:0.1, color:'#445566', seats:2},
+  {name:'Police', w:32, h:20, maxSpeed:7, accel:0.18, color:'#1a1aff', seats:4, isPolice:true},
+  {name:'Taxi', w:32, h:20, maxSpeed:5.5, accel:0.13, color:'#FFD700', seats:4},
+  {name:'Ambulance', w:36, h:22, maxSpeed:6, accel:0.15, color:'#ffffff', seats:2},
+];
+
+function spawnCars() {
+  for (let i = 0; i < 60; i++) {
+    let type = CAR_TYPES[Math.floor(Math.random()*4)];
+    state.cars.push({
+      x: 200+Math.random()*(MAP_W-400),
+      y: 200+Math.random()*(MAP_H-400),
+      angle: Math.random()*Math.PI*2,
+      speed: 0, type,
+      health: 100, onFire: false, fireTimer: 0,
+      driver: null, ai: true,
+      aiTimer: 0, aiTarget: null,
+      honking: false
+    });
+  }
+}
+
+// ============ NPCS ============
+function spawnNPCs() {
+  for (let i = 0; i < 80; i++) {
+    state.npcs.push({
+      x: 200+Math.random()*(MAP_W-400),
+      y: 200+Math.random()*(MAP_H-400),
+      angle: Math.random()*Math.PI*2,
+      speed: 0.8+Math.random()*0.5,
+      health: 50, dead: false,
+      fleeing: false, fleeTimer: 0,
+      ai: true, aiTimer: 0,
+      colorIdx: Math.floor(Math.random()*5)
+    });
+  }
+}
+
+// ============ POLICE ============
+function spawnPolice() {
+  if (state.wanted < 1) return;
+  let count = state.wanted;
+  for (let i = 0; i < count; i++) {
+    let dx = (Math.random()-0.5)*600;
+    let dy = (Math.random()-0.5)*600;
+    let type = CAR_TYPES[3];
+    let car = {
+      x: state.player.x+dx, y: state.player.y+dy,
+      angle: 0, speed: 0, type,
+      health: 150, onFire: false, fireTimer: 0,
+      driver: 'cop', ai: true, aiTimer: 0, aiTarget: 'player',
+      shootTimer: 0
+    };
+    state.cars.push(car);
+    // Cop on foot too if wanted >=3
+    if (state.wanted >= 3) {
+      state.enemies.push({
+        x: state.player.x+dx*0.5, y: state.player.y+dy*0.5,
+        angle: 0, speed: 2.5, health: 60, dead: false,
+        type: 'cop', shootTimer: 60+Math.random()*60,
+        alertTimer: 0
+      });
+    }
+  }
+}
+
+// ============ PICKUPS ============
+const PICKUP_TYPES = [
+  {name:'health', color:'#ff4444', r:10, label:'❤'},
+  {name:'armor', color:'#4488ff', r:10, label:'🛡'},
+  {name:'cash', color:'#FFD700', r:10, label:'$'},
+  {name:'ammo', color:'#ff8800', r:10, label:'🔫'},
+  {name:'weapon', color:'#aa44ff', r:12, label:'W'},
+];
+
+function spawnPickups() {
+  for (let i = 0; i < 40; i++) {
+    let t = PICKUP_TYPES[Math.floor(Math.random()*PICKUP_TYPES.length)];
+    state.pickups.push({
+      x: 200+Math.random()*(MAP_W-400),
+      y: 200+Math.random()*(MAP_H-400),
+      type: t, collected: false, bobT: Math.random()*Math.PI*2
+    });
+  }
+}
+
+// ============ MISSIONS ============
+const MISSION_DEFS = [
+  {
+    name:'El Primer Golpe', reward:500, steps:[
+      {type:'goto', x:600, y:600, r:50, msg:'Ve al punto de encuentro (CYAN)'},
+      {type:'kill', count:3, msg:'Elimina 3 enemigos'},
+      {type:'goto', x:700, y:700, r:50, msg:'Escapa a la zona segura'},
+    ]
+  },
+  {
+    name:'Robo de Coches', reward:800, steps:[
+      {type:'goto', x:1200, y:800, r:50, msg:'Ve al garaje (CYAN)'},
+      {type:'steal_car', msg:'Roba un coche (E cerca de un coche)'},
+      {type:'goto', x:1500, y:1500, r:80, msg:'Lleva el coche al punto de entrega'},
+    ]
+  },
+  {
+    name:'Guerra Territorial', reward:1200, steps:[
+      {type:'goto', x:2000, y:2000, r:60, msg:'Ve al territorio enemigo'},
+      {type:'kill', count:5, msg:'Elimina 5 enemigos del territorio'},
+      {type:'survive', time:300, msg:'Sobrevive 10 segundos en la zona'},
+    ]
+  },
+  {
+    name:'Persecución Policial', reward:1500, steps:[
+      {type:'wanted', level:3, msg:'Consigue 3 estrellas de búsqueda'},
+      {type:'survive_wanted', time:600, msg:'Sobrevive 20 segundos con 3 estrellas'},
+      {type:'goto', x:3000, y:3000, r:100, msg:'Escapa a la esquina del mapa'},
+    ]
+  },
+];
+
+function setupMissions() {
+  state.missions = MISSION_DEFS.map((m,i) => ({...m, done:false, active:false, markerX:200+i*800, markerY:300}));
+}
+
+// ============ WEAPONS ============
+const WEAPONS = [
+  {name:'PISTOLA', damage:25, speed:12, rate:20, spread:0.05, burst:1, ammoType:0},
+  {name:'UZI', damage:15, speed:14, rate:5, spread:0.15, burst:1, ammoType:1},
+  {name:'ESCOPETA', damage:40, speed:10, rate:40, spread:0.3, burst:5, ammoType:2},
+  {name:'RPG', damage:200, speed:8, rate:120, spread:0, burst:1, ammoType:3, explosion:true},
+];
+
+// ============ INPUT ============
+const keys = {};
+document.addEventListener('keydown', e => { keys[e.code] = true; handleKeyPress(e); });
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+let shootCooldown = 0, interactCooldown = 0, weaponCooldown = 0;
+
+function handleKeyPress(e) {
+  if (state.gameOver) return;
+  // Weapon switch
+  if (e.code === 'KeyQ') {
+    state.player.weapon = (state.player.weapon + 1) % WEAPONS.length;
+    showNotif(WEAPONS[state.player.weapon].name, 1000, '#fff');
+  }
+  // Interact
+  if (e.code === 'KeyE' && interactCooldown <= 0) {
+    interactCooldown = 30;
+    tryInteract();
+  }
+  // Reload
+  if (e.code === 'KeyR') {
+    let w = state.player.weapon;
+    if (w > 0) {
+      state.player.ammo[w] = WEAPONS[w].ammoType === 1 ? 30 : WEAPONS[w].ammoType === 2 ? 8 : 5;
+      showNotif('RECARGADO', 800);
+    }
+  }
+}
+
+function tryInteract() {
+  let p = state.player;
+  if (p.inCar) {
+    // Exit car
+    let car = state.cars[p.carIdx];
+    p.inCar = false;
+    p.x = car.x + Math.cos(car.angle+1.5)*30;
+    p.y = car.y + Math.sin(car.angle+1.5)*30;
+    car.driver = null;
+    p.carIdx = -1;
+    return;
+  }
+  // Enter nearby car
+  for (let i = 0; i < state.cars.length; i++) {
+    let car = state.cars[i];
+    let dx = car.x - p.x, dy = car.y - p.y;
+    if (Math.sqrt(dx*dx+dy*dy) < 40 && !car.driver) {
+      p.inCar = true;
+      p.carIdx = i;
+      car.driver = 'player';
+      showNotif('ENTRASTE: '+car.type.name.toUpperCase(), 1500);
+      return;
+    }
+  }
+  // Check missions
+  checkMissionInteract();
+}
+
+// ============ COLLISION ============
+function buildingAt(x, y, margin=0) {
+  for (let b of buildings) {
+    if (x > b.x-margin && x < b.x+b.w+margin && y > b.y-margin && y < b.y+b.h+margin) return b;
+  }
+  return null;
+}
+
+function waterAt(x, y) {
+  for (let w of waterBodies) {
+    if (x > w.x && x < w.x+w.w && y > w.y && y < w.y+w.h) return true;
+  }
+  return false;
+}
+
+// ============ UPDATE ============
+function update() {
+  if (state.gameOver) return;
+  state.tick++;
+
+  let p = state.player;
+  let dt = 1;
+
+  // Camera
+  state.camera.x += (p.x - state.camera.x) * 0.08;
+  state.camera.y += (p.y - state.camera.y) * 0.08;
+
+  if (p.inCar) {
+    updatePlayerCar(dt);
+  } else {
+    updatePlayerFoot(dt);
+  }
+
+  updateShooting();
+  updateBullets();
+  updateEnemies();
+  updateCarAI();
+  updateNPCs();
+  updateExplosions();
+  updatePickups();
+  updateWanted();
+  updateMissions();
+  checkMissionProgress();
+  updateHUD();
+
+  interactCooldown--;
+  shootCooldown--;
+  weaponCooldown--;
+}
+
+function updatePlayerFoot(dt) {
+  let p = state.player;
+  let moved = false;
+  let spd = 3;
+
+  if (keys['ShiftLeft'] || keys['ShiftRight']) spd = 5;
+
+  if (keys['ArrowUp']||keys['KeyW']) { p.y -= Math.cos(p.angle)*spd; p.x += Math.sin(p.angle)*spd; moved=true; }
+  if (keys['ArrowDown']||keys['KeyS']) { p.y += Math.cos(p.angle)*spd*0.6; p.x -= Math.sin(p.angle)*spd*0.6; moved=true; }
+  if (keys['ArrowLeft']||keys['KeyA']) p.angle -= 0.07;
+  if (keys['ArrowRight']||keys['KeyD']) p.angle += 0.07;
+
+  if (moved) {
+    // Check building collision
+    if (buildingAt(p.x, p.y, 8)) {
+      p.y += Math.cos(p.angle)*spd;
+      p.x -= Math.sin(p.angle)*spd;
+    }
+    // Water check
+    if (waterAt(p.x, p.y)) {
+      p.health -= 0.5;
+      if (p.health <= 0) killPlayer();
+    }
+    p.x = Math.max(10, Math.min(MAP_W-10, p.x));
+    p.y = Math.max(10, Math.min(MAP_H-10, p.y));
+  }
+}
+
+function updatePlayerCar(dt) {
+  let p = state.player;
+  let car = state.cars[p.carIdx];
+  let type = car.type;
+
+  if (keys['ArrowUp']||keys['KeyW']) car.speed = Math.min(type.maxSpeed, car.speed + type.accel);
+  else if (keys['ArrowDown']||keys['KeyS']) car.speed = Math.max(-type.maxSpeed*0.5, car.speed - type.accel*1.5);
+  else car.speed *= 0.95;
+
+  if (keys['ArrowLeft']||keys['KeyA']) car.angle -= 0.05 * (Math.abs(car.speed)/type.maxSpeed + 0.3);
+  if (keys['ArrowRight']||keys['KeyD']) car.angle += 0.05 * (Math.abs(car.speed)/type.maxSpeed + 0.3);
+
+  let nx = car.x + Math.sin(car.angle)*car.speed;
+  let ny = car.y - Math.cos(car.angle)*car.speed;
+
+  if (!buildingAt(nx, ny, car.type.w/2) && !waterAt(nx,ny)) {
+    car.x = nx; car.y = ny;
+  } else {
+    car.speed *= -0.3;
+  }
+
+  car.x = Math.max(20, Math.min(MAP_W-20, car.x));
+  car.y = Math.max(20, Math.min(MAP_H-20, car.y));
+  p.x = car.x; p.y = car.y; p.angle = car.angle;
+
+  // Hit NPCs with car
+  state.npcs.forEach(npc => {
+    if (npc.dead) return;
+    let dx = npc.x-car.x, dy = npc.y-car.y;
+    if (Math.sqrt(dx*dx+dy*dy) < 25 && Math.abs(car.speed) > 2) {
+      npc.health -= Math.abs(car.speed)*15;
+      if (npc.health <= 0) { npc.dead = true; addBlood(npc.x, npc.y); p.kills++; p.cash += 50; addWanted(1); }
+    }
+  });
+
+  document.getElementById('speedVal').textContent = Math.round(Math.abs(car.speed)*15);
+}
+
+function updateShooting() {
+  let p = state.player;
+  if (!(keys['Space'])) return;
+  let w = WEAPONS[p.weapon];
+  if (shootCooldown > 0) return;
+  if (p.weapon > 0 && p.ammo[w.ammoType] <= 0) {
+    showNotif('SIN MUNICIÓN - R PARA RECARGAR', 1200, '#ff4444');
+    return;
+  }
+  shootCooldown = w.rate;
+  if (p.weapon > 0) p.ammo[w.ammoType]--;
+
+  // Spawn bullets
+  for (let i = 0; i < w.burst; i++) {
+    let ang = p.angle + (Math.random()-0.5)*w.spread + (i-(w.burst-1)/2)*0.15;
+    state.bullets.push({
+      x: p.x, y: p.y,
+      vx: Math.sin(ang)*w.speed,
+      vy: -Math.cos(ang)*w.speed,
+      damage: w.damage, owner:'player',
+      life: 60, explosion: w.explosion||false
+    });
+  }
+  // Camera shake
+  camShake = 5;
+}
+
+let camShake = 0;
+
+function updateBullets() {
+  for (let i = state.bullets.length-1; i >= 0; i--) {
+    let b = state.bullets[i];
+    b.x += b.vx; b.y += b.vy;
+    b.life--;
+
+    if (b.life <= 0 || buildingAt(b.x, b.y) || b.x<0||b.x>MAP_W||b.y<0||b.y>MAP_H) {
+      if (b.explosion) spawnExplosion(b.x, b.y, 80);
+      state.bullets.splice(i,1);
+      continue;
+    }
+
+    // Hit NPCs
+    if (b.owner === 'player') {
+      for (let j = state.npcs.length-1; j >= 0; j--) {
+        let npc = state.npcs[j];
+        if (npc.dead) continue;
+        if (dist(b.x,b.y,npc.x,npc.y) < 12) {
+          npc.health -= b.damage;
+          addBlood(npc.x, npc.y);
+          if (npc.health <= 0) { npc.dead=true; state.player.kills++; state.player.cash+=100; addWanted(1); }
+          state.bullets.splice(i,1);
+          break;
+        }
+      }
+      // Hit enemies
+      for (let j = state.enemies.length-1; j >= 0; j--) {
+        let e = state.enemies[j];
+        if (e.dead) continue;
+        if (dist(b.x,b.y,e.x,e.y) < 12) {
+          e.health -= b.damage;
+          addBlood(e.x, e.y);
+          if (e.health <= 0) { e.dead=true; state.player.kills++; state.player.cash+=200; }
+          state.bullets.splice(i,1);
+          break;
+        }
+      }
+      // Hit cars
+      for (let car of state.cars) {
+        if (dist(b.x,b.y,car.x,car.y) < 25) {
+          car.health -= b.damage * 0.5;
+          if (b.explosion) { spawnExplosion(car.x,car.y,100); car.health = 0; }
+          if (car.health <= 0) { spawnExplosion(car.x,car.y,80); car.onFire=true; }
+        }
+      }
+    } else {
+      // Enemy bullets hit player
+      let p = state.player;
+      if (dist(b.x,b.y,p.x,p.y) < 14) {
+        let dmg = b.damage;
+        if (p.armor > 0) { p.armor -= dmg*0.7; dmg *= 0.3; }
+        p.health -= dmg;
+        camShake = 10;
+        if (p.health <= 0) killPlayer();
+        state.bullets.splice(i,1);
+      }
+    }
+  }
+}
+
+function updateEnemies() {
+  let p = state.player;
+  state.enemies.forEach(e => {
+    if (e.dead) return;
+    let dx = p.x-e.x, dy = p.y-e.y;
+    let d = Math.sqrt(dx*dx+dy*dy);
+    e.angle = Math.atan2(dx,dy)*-1 + Math.PI;
+
+    if (d < 400) {
+      // Chase
+      if (d > 60) {
+        e.x += (dx/d)*e.speed;
+        e.y += (dy/d)*e.speed;
+      }
+      // Shoot
+      e.shootTimer--;
+      if (e.shootTimer <= 0 && d < 300) {
+        e.shootTimer = 60 + Math.random()*60;
+        let ang = Math.atan2(dx,-dy) + (Math.random()-0.5)*0.3;
+        state.bullets.push({x:e.x,y:e.y, vx:Math.sin(ang)*8, vy:-Math.cos(ang)*8, damage:15, owner:'enemy', life:60});
+      }
+    }
+  });
+}
+
+function updateCarAI() {
+  state.cars.forEach(car => {
+    if (car.driver === 'player') return;
+    let p = state.player;
+
+    if (car.aiTarget === 'player') {
+      // Police chase
+      let dx = p.x-car.x, dy = p.y-car.y;
+      let d = Math.sqrt(dx*dx+dy*dy);
+      let targetAngle = Math.atan2(dx,-dy);
+      let angleDiff = targetAngle - car.angle;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI*2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI*2;
+      car.angle += Math.sign(angleDiff) * 0.06;
+      car.speed = Math.min(car.type.maxSpeed, car.speed + car.type.accel);
+
+      // Police shoot
+      car.shootTimer = (car.shootTimer||0) - 1;
+      if (car.shootTimer <= 0 && d < 250) {
+        car.shootTimer = 80;
+        let ang = Math.atan2(p.x-car.x, -(p.y-car.y)) + (Math.random()-0.5)*0.4;
+        state.bullets.push({x:car.x,y:car.y, vx:Math.sin(ang)*9, vy:-Math.cos(ang)*9, damage:20, owner:'enemy', life:50});
+      }
+    } else {
+      // Wander
+      car.aiTimer--;
+      if (car.aiTimer <= 0) {
+        car.aiTimer = 100 + Math.random()*200;
+        car.targetAngle = car.angle + (Math.random()-0.5)*Math.PI;
+        car.targetSpeed = 1 + Math.random()*car.type.maxSpeed*0.6;
+      }
+      car.angle += (car.targetAngle - car.angle) * 0.02;
+      car.speed += (car.targetSpeed - car.speed) * 0.05;
+    }
+
+    let nx = car.x + Math.sin(car.angle)*car.speed;
+    let ny = car.y - Math.cos(car.angle)*car.speed;
+    if (!buildingAt(nx,ny,car.type.w/2)) { car.x=nx; car.y=ny; }
+    else { car.angle += 0.3; car.speed *= 0.5; }
+
+    car.x = Math.max(20,Math.min(MAP_W-20,car.x));
+    car.y = Math.max(20,Math.min(MAP_H-20,car.y));
+
+    if (car.onFire) {
+      car.fireTimer++;
+      if (car.fireTimer > 180) car.health = -999;
+    }
+  });
+  // Remove destroyed cars (keep exploded husks)
+}
+
+function updateNPCs() {
+  let p = state.player;
+  state.npcs.forEach(npc => {
+    if (npc.dead) return;
+    let dx = p.x-npc.x, dy = p.y-npc.y;
+    let d = Math.sqrt(dx*dx+dy*dy);
+
+    if (d < 200 && (state.wanted > 0 || state.player.kills > 0)) {
+      npc.fleeing = true;
+    }
+    if (npc.fleeing) {
+      npc.x -= (dx/d)*npc.speed*1.5;
+      npc.y -= (dy/d)*npc.speed*1.5;
+    } else {
+      npc.aiTimer--;
+      if (npc.aiTimer <= 0) {
+        npc.aiTimer = 80+Math.random()*120;
+        npc.wanderAngle = Math.random()*Math.PI*2;
+      }
+      npc.x += Math.cos(npc.wanderAngle||0)*npc.speed;
+      npc.y += Math.sin(npc.wanderAngle||0)*npc.speed;
+    }
+    npc.x = Math.max(10,Math.min(MAP_W-10,npc.x));
+    npc.y = Math.max(10,Math.min(MAP_H-10,npc.y));
+  });
+}
+
+function updateExplosions() {
+  for (let i = state.explosions.length-1; i >= 0; i--) {
+    let e = state.explosions[i];
+    e.life--;
+    e.r += 2;
+    if (e.life <= 0) { state.explosions.splice(i,1); continue; }
+    // Damage player
+    let p = state.player;
+    if (dist(p.x,p.y,e.x,e.y) < e.maxR*0.5 && e.life > e.maxLife-10) {
+      p.health -= e.damage * 0.1;
+      if (p.health <= 0) killPlayer();
+    }
+  }
+}
+
+function updatePickups() {
+  let p = state.player;
+  state.pickups.forEach(pk => {
+    if (pk.collected) return;
+    pk.bobT += 0.05;
+    if (dist(p.x,p.y,pk.x,pk.y) < 20) {
+      pk.collected = true;
+      switch(pk.type.name) {
+        case 'health': p.health = Math.min(100, p.health+30); showNotif('❤ +30 VIDA', 1000,'#ff4444'); break;
+        case 'armor': p.armor = Math.min(100, p.armor+30); showNotif('🛡 +30 ARMOR', 1000,'#4488ff'); break;
+        case 'cash': let c=100+Math.floor(Math.random()*400); p.cash+=c; showNotif('$+'+c, 1000,'#FFD700'); break;
+        case 'ammo': p.ammo[1]=30; p.ammo[2]=8; showNotif('🔫 MUNICIÓN', 1000,'#ff8800'); break;
+        case 'weapon': p.ammo[3]=5; showNotif('💥 RPG x5', 1500,'#aa44ff'); break;
+      }
+      // Respawn after delay
+      setTimeout(()=>{ pk.collected=false; pk.x=200+Math.random()*(MAP_W-400); pk.y=200+Math.random()*(MAP_H-400); }, 15000);
+    }
+  });
+}
+
+function updateWanted() {
+  if (state.wanted > 0) {
+    state.wantedTimer--;
+    if (state.wantedTimer <= 0) {
+      state.wantedTimer = 0;
+      // Check if player visible to police
+      let visible = state.enemies.some(e=>!e.dead && e.type==='cop' && dist(state.player.x,state.player.y,e.x,e.y)<400);
+      visible = visible || state.cars.some(c=>c.driver==='cop'&&dist(state.player.x,state.player.y,c.x,c.y)<350);
+      if (!visible) {
+        state.wanted = Math.max(0, state.wanted-0.01);
+        if (state.wanted < 0.1) state.wanted = 0;
+      }
+    }
+    // Spawn police periodically
+    state.policeTimer--;
+    if (state.policeTimer <= 0) {
+      state.policeTimer = 300 / state.wanted;
+      spawnPolice();
+    }
+  }
+  // Update stars
+  for (let i = 1; i <= 5; i++) {
+    let el = document.getElementById('s'+i);
+    el.className = 'star ' + (i <= Math.ceil(state.wanted) ? 'active' : 'inactive');
+  }
+}
+
+function addWanted(amt) {
+  state.wanted = Math.min(5, state.wanted + amt);
+  state.wantedTimer = 600;
+  state.policeTimer = Math.max(1, state.policeTimer - 60);
+}
+
+function updateMissions() {
+  // Show mission markers
+}
+
+function checkMissionInteract() {
+  let p = state.player;
+  // Check available mission start points
+  state.missions.forEach((m,i) => {
+    if (m.done || m.active) return;
+    if (dist(p.x,p.y,m.markerX,m.markerY) < 60) {
+      m.active = true;
+      state.currentMission = i;
+      state.missionStep = 0;
+      showMissionMsg('MISIÓN: '+m.name+'\n'+m.steps[0].msg);
+      showNotif('¡MISIÓN INICIADA!', 2000, '#00ffff');
+    }
+  });
+}
+
+function checkMissionProgress() {
+  if (state.currentMission === null) return;
+  let m = state.missions[state.currentMission];
+  if (!m || m.done) return;
+  let step = m.steps[state.missionStep];
+  let p = state.player;
+
+  if (step.type === 'goto') {
+    if (dist(p.x,p.y,step.x,step.y) < step.r) advanceMission(m);
+  } else if (step.type === 'kill') {
+    if (!step.startKills) step.startKills = p.kills;
+    if (p.kills - step.startKills >= step.count) advanceMission(m);
+    showMissionMsg(`MISIÓN: ${m.name}\nElimina: ${Math.min(step.count, p.kills-(step.startKills||0))}/${step.count}`);
+  } else if (step.type === 'steal_car') {
+    if (p.inCar) advanceMission(m);
+  } else if (step.type === 'survive') {
+    if (!step.startTick) step.startTick = state.tick;
+    let remaining = Math.max(0, step.time - (state.tick - step.startTick));
+    showMissionMsg(`MISIÓN: ${m.name}\nSobrevive: ${Math.ceil(remaining/30)}s`);
+    if (remaining <= 0) advanceMission(m);
+  } else if (step.type === 'wanted') {
+    if (state.wanted >= step.level) advanceMission(m);
+  } else if (step.type === 'survive_wanted') {
+    if (!step.startTick) step.startTick = state.tick;
+    let remaining = Math.max(0, step.time - (state.tick - step.startTick));
+    showMissionMsg(`MISIÓN: ${m.name}\nSobrevive: ${Math.ceil(remaining/30)}s`);
+    if (remaining <= 0) advanceMission(m);
+  }
+}
+
+function advanceMission(m) {
+  state.missionStep++;
+  if (state.missionStep >= m.steps.length) {
+    // Complete
+    m.done = true; m.active = false;
+    state.player.cash += m.reward;
+    state.currentMission = null;
+    hideMissionMsg();
+    showNotif(`✓ MISIÓN COMPLETADA\n$+${m.reward}`, 3000, '#00ff88');
+  } else {
+    let step = m.steps[state.missionStep];
+    showMissionMsg('MISIÓN: '+m.name+'\n'+step.msg);
+  }
+}
+
+function spawnExplosion(x, y, r) {
+  let maxLife = 25;
+  state.explosions.push({x, y, r:10, maxR:r, maxLife, life:maxLife, damage:80});
+  camShake = 20;
+  // Kill nearby
+  state.npcs.forEach(n => { if(!n.dead&&dist(n.x,n.y,x,y)<r*0.7){n.dead=true;addBlood(n.x,n.y);state.player.kills++;} });
+  state.enemies.forEach(e => { if(!e.dead&&dist(e.x,e.y,x,y)<r*0.7){e.dead=true;addBlood(e.x,e.y);state.player.kills++;} });
+}
+
+function addBlood(x, y) {
+  for (let i = 0; i < 5; i++) {
+    state.bloodPools.push({x:x+(Math.random()-0.5)*20, y:y+(Math.random()-0.5)*20, r:3+Math.random()*5, life:1000});
+  }
+  if (state.bloodPools.length > 500) state.bloodPools.splice(0, 100);
+}
+
+function killPlayer() {
+  state.gameOver = true;
+  document.getElementById('gameOver').style.display='flex';
+  document.getElementById('deathStats').textContent =
+    `Efectivos eliminados: ${state.player.kills} | Dinero: $${state.player.cash}`;
+}
+
+function updateHUD() {
+  let p = state.player;
+  document.getElementById('healthFill').style.width = Math.max(0,p.health)+'%';
+  document.getElementById('armorFill').style.width = Math.max(0,p.armor)+'%';
+  document.getElementById('cashVal').textContent = p.cash.toLocaleString();
+  document.getElementById('killCount').textContent = p.kills;
+  let w = WEAPONS[p.weapon];
+  document.getElementById('weaponName').textContent = w.name;
+  document.getElementById('ammoVal').textContent = p.weapon===0 ? '∞' : p.ammo[w.ammoType];
+  if (!state.player.inCar) document.getElementById('speedVal').textContent = '0';
+}
+
+// ============ NOTIFICATIONS ============
+let notifTimeout = null;
+function showNotif(msg, dur=2000, color='#00ff88') {
+  let el = document.getElementById('notification');
+  el.innerHTML = msg.replace('\n','<br>');
+  el.style.color = color;
+  el.style.borderColor = color;
+  el.style.display = 'block';
+  clearTimeout(notifTimeout);
+  notifTimeout = setTimeout(()=>el.style.display='none', dur);
+}
+
+let missionMsgEl = document.getElementById('missionBox');
+function showMissionMsg(msg) {
+  missionMsgEl.innerHTML = msg.replace('\n','<br>');
+  missionMsgEl.style.display = 'block';
+}
+function hideMissionMsg() {
+  missionMsgEl.style.display = 'none';
+}
+
+// ============ DRAW ============
+function draw() {
+  let cx = state.camera.x, cy = state.camera.y;
+  let sw = canvas.width, sh = canvas.height;
+
+  if (camShake > 0) {
+    cx += (Math.random()-0.5)*camShake;
+    cy += (Math.random()-0.5)*camShake;
+    camShake *= 0.8;
+    if (camShake < 0.5) camShake = 0;
+  }
+
+  let ox = sw/2 - cx;
+  let oy = sh/2 - cy;
+
+  ctx.clearRect(0,0,sw,sh);
+  ctx.save();
+  ctx.translate(ox, oy);
+
+  // Background
+  ctx.fillStyle = C.sidewalk;
+  ctx.fillRect(0, 0, MAP_W, MAP_H);
+
+  // Water
+  waterBodies.forEach(w => {
+    ctx.fillStyle = C.water;
+    ctx.fillRect(w.x, w.y, w.w, w.h);
+    // Waves
+    ctx.strokeStyle = 'rgba(100,180,255,0.2)';
+    ctx.lineWidth = 1;
+    for (let wy = w.y+20; wy < w.y+w.h; wy+=30) {
+      ctx.beginPath();
+      for (let wx = w.x; wx < w.x+w.w; wx+=5) {
+        let wv = Math.sin((wx+state.tick)*0.05)*3;
+        wx===w.x ? ctx.moveTo(wx,wy+wv) : ctx.lineTo(wx,wy+wv);
+      }
+      ctx.stroke();
+    }
+  });
+
+  // Parks
+  parks.forEach(p => {
+    ctx.fillStyle = C.park;
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+  });
+
+  // Roads
+  roads.forEach(r => {
+    ctx.fillStyle = r.highway ? C.highway : C.road;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    // Dashes
+    if (!r.highway) {
+      ctx.fillStyle = C.roadLine;
+      if (r.dir==='h') {
+        for (let dx = r.x+20; dx < r.x+r.w; dx+=40) ctx.fillRect(dx, r.y+r.h/2-1, 20, 2);
+      } else {
+        for (let dy = r.y+20; dy < r.y+r.h; dy+=40) ctx.fillRect(r.x+r.w/2-1, dy, 2, 20);
+      }
+    } else {
+      ctx.fillStyle = '#FFD700';
+      if (r.dir==='h') {
+        for (let dx = r.x; dx < r.x+r.w; dx+=20) ctx.fillRect(dx, r.y+r.h/2-1, 10, 2);
+        ctx.fillRect(r.x, r.y, r.w, 2);
+        ctx.fillRect(r.x, r.y+r.h-2, r.w, 2);
+      } else {
+        for (let dy = r.y; dy < r.y+r.h; dy+=20) ctx.fillRect(r.x+r.w/2-1, dy, 2, 10);
+        ctx.fillRect(r.x, r.y, 2, r.h);
+        ctx.fillRect(r.x+r.w-2, r.y, 2, r.h);
+      }
+    }
+  });
+
+  // Decorations (trees, lamps)
+  decorations.forEach(d => {
+    if (d.type==='tree') {
+      ctx.fillStyle = '#0d2a0d';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r+2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#1a4a1a';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#2a6a2a';
+      ctx.beginPath(); ctx.arc(d.x-2, d.y-2, d.r*0.6, 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle = '#666';
+      ctx.fillRect(d.x-1, d.y-10, 2, 10);
+      ctx.fillStyle = '#ffff99';
+      ctx.beginPath(); ctx.arc(d.x, d.y-12, 3, 0, Math.PI*2); ctx.fill();
+    }
+  });
+
+  // Blood pools
+  state.bloodPools.forEach(b => {
+    if (b.life <= 0) return;
+    ctx.fillStyle = `rgba(180,0,0,${Math.min(0.7, b.life/200)})`;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2); ctx.fill();
+    b.life--;
+  });
+
+  // Buildings
+  let visLeft = cx-sw/2-200, visRight = cx+sw/2+200;
+  let visTop = cy-sh/2-200, visBot = cy+sh/2+200;
+
+  buildings.forEach(b => {
+    if (b.x+b.w < visLeft || b.x > visRight || b.y+b.h < visTop || b.y > visBot) return;
+    let col = C.building[b.colorIdx];
+    let rc = C.roof[b.colorIdx];
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(b.x+4, b.y+4, b.w, b.h);
+    // Body
+    ctx.fillStyle = col;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    // Roof
+    ctx.fillStyle = rc;
+    ctx.fillRect(b.x, b.y, b.w, 6);
+    // Windows
+    if (b.hasWindow && b.w > 20 && b.h > 20) {
+      let lit = Math.sin(state.tick*0.01+b.x+b.y) > 0;
+      ctx.fillStyle = lit ? 'rgba(255,240,100,0.7)' : 'rgba(50,50,80,0.5)';
+      for (let wy = b.y+10; wy < b.y+b.h-8; wy+=12) {
+        for (let wx = b.x+6; wx < b.x+b.w-8; wx+=10) {
+          ctx.fillRect(wx, wy, 6, 7);
+        }
+      }
+    }
+    // Outline
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+  });
+
+  // Pickups
+  state.pickups.forEach(pk => {
+    if (pk.collected) return;
+    let bob = Math.sin(pk.bobT)*4;
+    ctx.save();
+    ctx.shadowColor = pk.type.color;
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = pk.type.color;
+    ctx.beginPath();
+    ctx.arc(pk.x, pk.y+bob, pk.type.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(pk.type.label, pk.x, pk.y+bob+4);
+    ctx.restore();
+  });
+
+  // Mission markers
+  state.missions.forEach((m,i) => {
+    if (m.done) return;
+    let mx = m.active && state.currentMission===i && m.steps[state.missionStep] ?
+      (m.steps[state.missionStep].x || m.markerX) : m.markerX;
+    let my = m.active && state.currentMission===i && m.steps[state.missionStep] ?
+      (m.steps[state.missionStep].y || m.markerY) : m.markerY;
+
+    ctx.save();
+    ctx.shadowColor = m.active ? '#00ffff' : '#ffaa00';
+    ctx.shadowBlur = 20;
+    // Pulsing circle
+    let pulse = Math.sin(state.tick*0.1)*10+30;
+    ctx.strokeStyle = m.active ? '#00ffff' : '#ffaa00';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = m.active ? 'rgba(0,255,255,0.2)' : 'rgba(255,170,0,0.2)';
+    ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI*2); ctx.fill();
+    // Letter
+    ctx.fillStyle = m.active ? '#00ffff' : '#ffaa00';
+    ctx.font = 'bold 16px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(m.active ? '★' : '!', mx, my+6);
+    ctx.restore();
+  });
+
+  // NPCs
+  state.npcs.forEach(npc => {
+    if (npc.dead) return;
+    let col = C.civilian[npc.colorIdx];
+    drawPerson(npc.x, npc.y, npc.angle, col, 8);
+  });
+
+  // Enemies
+  state.enemies.forEach(e => {
+    if (e.dead) return;
+    drawPerson(e.x, e.y, e.angle, '#1a1aff', 9);
+    // Health bar
+    ctx.fillStyle = '#333'; ctx.fillRect(e.x-15, e.y-20, 30, 4);
+    ctx.fillStyle = '#0f0'; ctx.fillRect(e.x-15, e.y-20, 30*(e.health/60), 4);
+  });
+
+  // Cars
+  state.cars.forEach(car => {
+    if (car.health < 0) {
+      // Wreck
+      ctx.save();
+      ctx.translate(car.x, car.y);
+      ctx.rotate(car.angle);
+      ctx.fillStyle = '#333';
+      ctx.fillRect(-car.type.w/2, -car.type.h/2, car.type.w, car.type.h);
+      ctx.restore();
+      return;
+    }
+    drawCar(car);
+    if (car.onFire) {
+      // Fire effect
+      let ft = state.tick;
+      for (let fi = 0; fi < 8; fi++) {
+        let fa = (ft*0.2+fi) * 0.8;
+        let fr = 5 + Math.sin(ft*0.3+fi)*8;
+        ctx.fillStyle = `rgba(255,${100+fi*20},0,${0.7-fi*0.08})`;
+        ctx.beginPath();
+        ctx.arc(car.x+Math.cos(fa)*fr*0.5, car.y+Math.sin(fa)*fr*0.5, 3+fi*1.5, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  });
+
+  // Player
+  let p = state.player;
+  if (!p.inCar) {
+    drawPerson(p.x, p.y, p.angle, C.player, 10);
+    // Gun
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+    ctx.fillStyle = '#888';
+    ctx.fillRect(-2, -20, 4, 14);
+    ctx.restore();
+  }
+
+  // Bullets
+  state.bullets.forEach(b => {
+    ctx.save();
+    ctx.shadowColor = b.owner==='player' ? '#ffff00' : '#ff4400';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = b.owner==='player' ? '#ffff00' : '#ff6600';
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.explosion?6:3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Explosions
+  state.explosions.forEach(e => {
+    let prog = 1 - e.life/e.maxLife;
+    ctx.save();
+    // Outer glow
+    let grad = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.r);
+    grad.addColorStop(0, `rgba(255,255,200,${1-prog})`);
+    grad.addColorStop(0.4, `rgba(255,150,0,${0.8*(1-prog)})`);
+    grad.addColorStop(1, 'rgba(255,50,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2); ctx.fill();
+    // Shockwave
+    ctx.strokeStyle = `rgba(255,200,100,${0.5*(1-prog)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r*1.2, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  });
+
+  ctx.restore();
+
+  // Minimap
+  drawMinimap(cx, cy);
+
+  // Vignette
+  let vg = ctx.createRadialGradient(sw/2,sh/2,sh*0.3,sw/2,sh/2,sh*0.8);
+  vg.addColorStop(0,'transparent');
+  vg.addColorStop(1,'rgba(0,0,0,0.4)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0,0,sw,sh);
+}
+
+function drawPerson(x, y, angle, color, r) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(2, 2, r*0.8, r*0.5, 0, 0, Math.PI*2); ctx.fill();
+  // Body
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill();
+  // Direction indicator
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath();
+  ctx.moveTo(0, -r*0.9);
+  ctx.lineTo(-r*0.4, r*0.4);
+  ctx.lineTo(r*0.4, r*0.4);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawCar(car) {
+  ctx.save();
+  ctx.translate(car.x, car.y);
+  ctx.rotate(car.angle);
+  let w = car.type.w, h = car.type.h;
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(-w/2+3, -h/2+3, w, h);
+  // Body
+  ctx.fillStyle = car.type.color;
+  ctx.fillRect(-w/2, -h/2, w, h);
+  // Windshield
+  ctx.fillStyle = 'rgba(150,220,255,0.5)';
+  ctx.fillRect(-w/2+4, -h/2+3, w-8, h/3);
+  // Taillights
+  ctx.fillStyle = '#ff4444';
+  ctx.fillRect(-w/2+1, h/2-5, 6, 4);
+  ctx.fillRect(w/2-7, h/2-5, 6, 4);
+  // Headlights
+  ctx.fillStyle = '#ffffaa';
+  ctx.fillRect(-w/2+1, -h/2+1, 6, 4);
+  ctx.fillRect(w/2-7, -h/2+1, 6, 4);
+  // Police lights
+  if (car.type.isPolice) {
+    let t = Math.floor(state.tick/5)%2;
+    ctx.fillStyle = t ? '#ff2200' : '#0022ff';
+    ctx.fillRect(-w/4, -h/2-4, w/2, 4);
+  }
+  // Outline
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-w/2, -h/2, w, h);
+  ctx.restore();
+}
+
+function drawMinimap(camX, camY) {
+  let mw=180, mh=180;
+  let scale = mw/600;
+  mmCtx.clearRect(0,0,mw,mh);
+  mmCtx.fillStyle = 'rgba(0,0,0,0.7)';
+  mmCtx.fillRect(0,0,mw,mh);
+
+  let offX = mw/2 - state.player.x*scale;
+  let offY = mh/2 - state.player.y*scale;
+
+  // Roads
+  mmCtx.fillStyle = '#444';
+  roads.forEach(r => mmCtx.fillRect(r.x*scale+offX, r.y*scale+offY, r.w*scale, r.h*scale));
+  // Water
+  mmCtx.fillStyle = '#1a3a5a';
+  waterBodies.forEach(w => mmCtx.fillRect(w.x*scale+offX, w.y*scale+offY, w.w*scale, w.h*scale));
+  // Parks
+  mmCtx.fillStyle = '#1a3a1a';
+  parks.forEach(p => mmCtx.fillRect(p.x*scale+offX, p.y*scale+offY, p.w*scale, p.h*scale));
+  // Cars
+  state.cars.forEach(c => {
+    mmCtx.fillStyle = c.type.isPolice ? '#4444ff' : '#888';
+    mmCtx.fillRect(c.x*scale+offX-2, c.y*scale+offY-2, 4, 4);
+  });
+  // NPCs
+  mmCtx.fillStyle = '#aaa';
+  state.npcs.forEach(n => { if(!n.dead) mmCtx.fillRect(n.x*scale+offX-1, n.y*scale+offY-1, 2, 2); });
+  // Enemies
+  mmCtx.fillStyle = '#ff4444';
+  state.enemies.forEach(e => { if(!e.dead) mmCtx.fillRect(e.x*scale+offX-2, e.y*scale+offY-2, 4, 4); });
+  // Mission markers
+  state.missions.forEach(m => {
+    if (m.done) return;
+    mmCtx.fillStyle = m.active ? '#00ffff' : '#ffaa00';
+    let mx = m.markerX*scale+offX, my = m.markerY*scale+offY;
+    mmCtx.beginPath(); mmCtx.arc(mx,my,3,0,Math.PI*2); mmCtx.fill();
+  });
+  // Pickups
+  state.pickups.forEach(pk => {
+    if (pk.collected) return;
+    mmCtx.fillStyle = pk.type.color;
+    mmCtx.beginPath(); mmCtx.arc(pk.x*scale+offX, pk.y*scale+offY, 2, 0, Math.PI*2); mmCtx.fill();
+  });
+  // Player
+  mmCtx.fillStyle = '#00ff88';
+  mmCtx.beginPath(); mmCtx.arc(mw/2, mh/2, 4, 0, Math.PI*2); mmCtx.fill();
+  // Border
+  mmCtx.strokeStyle = '#00ff88';
+  mmCtx.lineWidth = 1;
+  mmCtx.strokeRect(0,0,mw,mh);
+  // Direction arrow
+  mmCtx.save();
+  mmCtx.translate(mw/2, mh/2);
+  mmCtx.rotate(state.player.angle);
+  mmCtx.fillStyle = '#fff';
+  mmCtx.beginPath(); mmCtx.moveTo(0,-8); mmCtx.lineTo(-4,4); mmCtx.lineTo(4,4); mmCtx.closePath(); mmCtx.fill();
+  mmCtx.restore();
+}
+
+function dist(x1,y1,x2,y2) { let dx=x2-x1,dy=y2-y1; return Math.sqrt(dx*dx+dy*dy); }
+
+// ============ GAME LOOP ============
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+// ============ INIT ============
+document.getElementById('startBtn').onclick = () => {
+  document.getElementById('splash').style.display = 'none';
+  generateMap();
+  initState();
+  gameLoop();
+};
+
+document.getElementById('restartBtn').onclick = () => {
+  document.getElementById('gameOver').style.display = 'none';
+  initState();
+};
+
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
